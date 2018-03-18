@@ -75,7 +75,7 @@ class Playlist extends Component {
       <div style={{...defaultStyle, 
         display: 'inline-block', 
         width: "25%",
-        margin: '30px 15px',
+        margin: '10px',
         'background-color': isEven(this.props.index) 
           ? '#C0C0C0' 
           : '#808080'
