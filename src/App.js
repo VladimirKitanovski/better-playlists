@@ -1,62 +1,23 @@
 import React, { Component } from 'react';
 import './App.css';
+import queryString from 'query-string';
 
 let defaultStyle = {
-  color: "#fff"
-}
-
-let fakeServerData = {
-  user: {
-    name: "Vladimir",
-    playlists: [
-      {
-        name: "My favorites",
-        songs: [
-           {name: "Beat It", duration: 1345},
-           {name: "Eye of the Tiger", duration: 1236},
-           {name: "On the Regular", duration: 70000}
-          ]
-      },
-      {
-        name: "Discover Weekly",
-        songs: [
-          {name: "Top off", duration: 1345},
-          {name: "Can't be Stopped", duration: 1236},
-          {name: "One in a Million", duration: 70000}
-         ]
-      },
-      {
-        name: "Another playlist - the best",
-        songs: [
-          {name: "Fall for your Type", duration: 1345},
-          {name: "Yeah!", duration: 1236},
-          {name: "Let Me Love You", duration: 70000}
-         ]
-      },
-      {
-        name: "Playlist!",
-        songs: [
-          {name: "Baby", duration: 1345},
-          {name: "Money on my Mind", duration: 1236},
-          {name: "Too Good at Goodbyes", duration: 70000}
-         ]
-      }
-    ]
-  }
+  color: '#fff'
 };
 
 class PlaylistCounter extends Component {
-  render () {
+  render() {
     return (
-        <div style={{...defaultStyle, width:  "40%", display: "inline-block"}}>
-          <h2>{this.props.playlists.length} playlists</h2>
-        </div>
+      <div style={{...defaultStyle, width: "40%", display: 'inline-block'}}>
+        <h2>{this.props.playlists.length} playlists</h2>
+      </div>
     );
   }
 }
 
 class HoursCounter extends Component {
-  render () {
+  render() {
     let allSongs = this.props.playlists.reduce((songs, eachPlaylist) => {
       return songs.concat(eachPlaylist.songs)
     }, [])
@@ -64,17 +25,17 @@ class HoursCounter extends Component {
       return sum + eachSong.duration
     }, 0)
     return (
-        <div style={{...defaultStyle, width:  "40%", display: "inline-block"}}>
-          <h2>{Math.floor(totalDuration/60)} hours</h2>
-        </div>
+      <div style={{...defaultStyle, width: "40%", display: 'inline-block'}}>
+        <h2>{Math.round(totalDuration/60)} hours</h2>
+      </div>
     );
   }
 }
 
 class Filter extends Component {
-  render () {
+  render() {
     return (
-      <div style={{...defaultStyle}}>
+      <div style={defaultStyle}>
         <img/>
         <input type="text" onKeyUp={event => 
           this.props.onTextChange(event.target.value)}/>
@@ -84,16 +45,16 @@ class Filter extends Component {
 }
 
 class Playlist extends Component {
-  render () {
+  render() {
     let playlist = this.props.playlist
     return (
-      <div style={{...defaultStyle,display: "inline-block", width: "25%"}}>
-        <img />
+      <div style={{...defaultStyle, display: 'inline-block', width: "25%"}}>
+        <img src={playlist.imageUrl} style={{width: '60px'}}/>
         <h3>{playlist.name}</h3>
         <ul>
-          {playlist.songs.map(song =>
-          <li>{song.name}</li>
-        )}
+          {playlist.songs.map(song => 
+            <li>{song.name}</li>
+          )}
         </ul>
       </div>
     );
@@ -105,37 +66,67 @@ class App extends Component {
     super();
     this.state = {
       serverData: {},
-      filterString: ""
+      filterString: ''
     }
   }
   componentDidMount() {
-    setTimeout(() => {
-    this.setState({serverData: fakeServerData});
-  }, 1000);
-}
+    let parsed = queryString.parse(window.location.search);
+    let accessToken = parsed.access_token;
+    if (!accessToken)
+      return;
+    fetch('https://api.spotify.com/v1/me', {
+      headers: {'Authorization': 'Bearer ' + accessToken}
+    }).then(response => response.json())
+    .then(data => this.setState({
+      user: {
+        name: data.display_name
+      }
+    }))
+
+    fetch('https://api.spotify.com/v1/me/playlists', {
+      headers: {'Authorization': 'Bearer ' + accessToken}
+    }).then(response => response.json())
+    .then(data => this.setState({
+      playlists: data.items.map(item => {
+        console.log(data.items)
+        return {
+          name: item.name,
+          imageUrl: item.images[0].url, 
+          songs: []
+        }
+    })
+    }))
+
+  }
   render() {
-    let playlistToRender = this.state.serverData.user ? this.state.serverData.user.playlists
-    .filter(playlist =>
-      playlist.name.toLowerCase().includes(
-        this.state.filterString.toLowerCase())
-    ) : []
+    let playlistToRender = 
+      this.state.user && 
+      this.state.playlists 
+        ? this.state.playlists.filter(playlist => 
+          playlist.name.toLowerCase().includes(
+            this.state.filterString.toLowerCase())) 
+        : []
     return (
       <div className="App">
-
-        {this.state.serverData.user ?
+        {this.state.user ?
         <div>
-        <h1 style={{...defaultStyle, 'font-size': '54px'}}>
-          {this.state.serverData.user.name}'s Playlists
-        </h1>
+          <h1 style={{...defaultStyle, 'font-size': '54px'}}>
+            {this.state.user.name}'s Playlists
+          </h1>
           <PlaylistCounter playlists={playlistToRender}/>
           <HoursCounter playlists={playlistToRender}/>
-        <Filter onTextChange={text => {
-          this.setState({filterString: text})
-        }}/>
-        {playlistToRender.map(playlist =>
-         <Playlist playlist={playlist}/>
-        )}
-        </div> : <h1 style={defaultStyle}>Loading...</h1>
+          <Filter onTextChange={text => {
+              this.setState({filterString: text})
+            }}/>
+          {playlistToRender.map(playlist => 
+            <Playlist playlist={playlist} />
+          )}
+        </div> : <button onClick={() => {
+            window.location = window.location.href.includes('localhost') 
+              ? 'http://localhost:8888/login' 
+              : 'https://better-playlists-backend-586.herokuapp.com/login' }
+          }
+          style={{padding: '20px', 'font-size': '50px', 'margin-top': '20px'}}>Sign in with Spotify</button>
         }
       </div>
     );
